@@ -1,0 +1,23 @@
+{
+  "vestedLock": "0x062A159961aB1526F7c01D5E194974140b033fDf",
+  "greenMintingToken": "0x5e049e90a324b30FBDD6e0e57052b17441cF2abA",
+  "prefundedAccounts": [
+    {
+      "address": "0x82a274a6F7C2990a5dAe92C2c0fbB0890aD2E69c",
+      "amount": "750000000000000000000000000"
+    },
+    {
+      "address": "0x91366843793C21506512a6e80d669ad6BB617561",
+      "amount": "35000000000000000000000000"
+    },
+    {
+      "address": "0x0CD749BC3e8e768d1C1Ab1fAC05d1C0119e80349",
+      "amount": "1115000000000000000000000000"
+    },
+    {
+      "address": "0x56eDd1B091e83360eB4efF57A4A7eDf940c3333d",
+      "amount": "50000000000000000000000000"
+    }
+  ],
+  "deployer": "0x409c98F6196d6376415AbcAec8697a733d298E8c"
+}
