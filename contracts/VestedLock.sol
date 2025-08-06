@@ -30,6 +30,15 @@ contract VestedLock {
             "VestingAccount is zero address"
         );
         require(tokenAddress != address(0), "tokenAddress is zero address");
+        require(_secPerStage > 100, "Seconds per stage too low");
+        require(
+            _claimingPercentsSchedule.length > 0,
+            "Percents schedule empty"
+        );
+        require(
+            block.timestamp < _unvestingStartTimestamp,
+            "Unvesting start timestamp too low"
+        );
 
         vestingAccount = _vestingAccount;
         secPerStage = _secPerStage;

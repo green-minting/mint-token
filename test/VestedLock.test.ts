@@ -2,7 +2,7 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { deployFixture } from "./fixture";
 
-describe("VestedLock.sol", function () {
+describe.only("VestedLock.sol", function () {
   it("Unvest will start after defined timestamp", async () => {
     const timeTillUnlockInSec = 10;
     const currentBlock = await ethers.provider.getBlock("latest");
@@ -32,6 +32,7 @@ describe("VestedLock.sol", function () {
       vestedLock,
       unvestStartTimestamp,
     } = await deployFixture();
+    await mineBlocks(unvestStartTimestamp);
 
     let currentStage = 0;
 
@@ -100,9 +101,9 @@ describe("VestedLock.sol", function () {
     const latestBlock = await ethers.provider.getBlock("latest");
     const vestedLock = await VestedLock.deploy(
       vestingAccount,
-      10,
+      150,
       [10],
-      latestBlock!.timestamp,
+      latestBlock!.timestamp + 100,
       greenMintingToken
     );
 
@@ -136,6 +137,7 @@ describe("VestedLock.sol", function () {
       tokenHolderB,
       greenMintingToken,
     } = await deployFixture();
+    await mineBlocks(unvestStartTimestamp);
 
     let currentStage = 0;
 
@@ -179,6 +181,7 @@ describe("VestedLock.sol", function () {
       unvestStartTimestamp,
       greenMintingToken,
     } = await deployFixture();
+    await mineBlocks(unvestStartTimestamp);
 
     // move right to the third claiming stage
     await mineBlocks(unvestStartTimestamp + secPerStage * 2);
@@ -213,6 +216,7 @@ describe("VestedLock.sol", function () {
       vestedLock,
       unvestStartTimestamp,
     } = await deployFixture({ claimingPercentsSchedule });
+    await mineBlocks(unvestStartTimestamp);
 
     let expectedAvailableVestedTokens =
       (vestedAmount * BigInt(claimingPercentsSchedule[0])) / BigInt(10000);
@@ -234,7 +238,9 @@ describe("VestedLock.sol", function () {
   });
 
   it("Only Vesting Account can claim tokens", async () => {
-    const { vestedLock, otherAccounts } = await deployFixture();
+    const { vestedLock, otherAccounts, unvestStartTimestamp } =
+      await deployFixture();
+    await mineBlocks(unvestStartTimestamp);
 
     await expect(vestedLock.connect(otherAccounts[0]).claimVestedTokens()).to
       .reverted;

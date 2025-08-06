@@ -37,7 +37,7 @@ export async function deployFixture(input?: DeploymentInput) {
   };
 
   const vestedAmount = BigInt(100000);
-  const secPerStage = 10;
+  const secPerStage = 150;
 
   // 100% = 10000
   const claimingPercentsSchedule = input?.claimingPercentsSchedule || [
@@ -52,7 +52,8 @@ export async function deployFixture(input?: DeploymentInput) {
 
   const currentBlock = await ethers.provider.getBlock("latest");
   const unvestStartTimestamp =
-    input?.unvestStartTimestamp || currentBlock!.timestamp;
+    input?.unvestStartTimestamp || currentBlock!.timestamp + 100;
+
   const vestedLock = await VestedLock.deploy(
     vestingAccount,
     secPerStage,
