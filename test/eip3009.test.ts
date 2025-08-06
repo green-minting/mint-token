@@ -1,11 +1,6 @@
 import { expect } from "chai";
-import hre, { ethers } from "hardhat";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-
-interface TokenHolder {
-  account: HardhatEthersSigner;
-  balance: bigint;
-}
+import { ethers } from "hardhat";
+import { deployFixture } from "./fixture";
 
 interface Domain {
   name: string;
@@ -15,177 +10,6 @@ interface Domain {
 }
 
 describe("GreenMintingToken", function () {
-  async function deployFixture(_unvestStartTimestamp?: number) {
-    const [
-      deployer,
-      _tokenHolderA,
-      _tokenHolderB,
-      vestingAccount,
-      ...otherAccounts
-    ] = await hre.ethers.getSigners();
-
-    const GreenMintingToken = await hre.ethers.getContractFactory(
-      "GreenMintingToken"
-    );
-
-    const VestedLock = await hre.ethers.getContractFactory("VestedLock");
-
-    const tokenHolderA: TokenHolder = {
-      account: otherAccounts[0],
-      balance: BigInt(500),
-    };
-
-    const tokenHolderB: TokenHolder = {
-      account: otherAccounts[1],
-      balance: BigInt(500),
-    };
-
-    const vestedAmount = BigInt(100000);
-    const secPerStage = 10;
-    const claimingPercentsSchedule = [3000, 2000, 5000]; // 100% = 10000
-
-    const greenMintingToken = await GreenMintingToken.deploy(
-      [tokenHolderA.account, tokenHolderB.account],
-      [tokenHolderA.balance, tokenHolderB.balance],
-      vestedAmount
-    );
-
-    const currentBlock = await ethers.provider.getBlock("latest");
-    const unvestStartTimestamp =
-      _unvestStartTimestamp || currentBlock!.timestamp;
-    const vestedLock = await VestedLock.deploy(
-      vestingAccount,
-      secPerStage,
-      claimingPercentsSchedule,
-      unvestStartTimestamp,
-      greenMintingToken
-    );
-
-    await greenMintingToken.transfer(vestedLock, vestedAmount);
-
-    return {
-      greenMintingToken,
-      deployer,
-      tokenHolderA,
-      tokenHolderB,
-      vestingAccount,
-      otherAccounts,
-      vestedAmount,
-      secPerStage,
-      claimingPercentsSchedule,
-      vestedLock,
-      unvestStartTimestamp,
-    };
-  }
-
-  describe("Deployment", () => {
-    it("Fund predefined accounts with tokens", async () => {
-      const { greenMintingToken, tokenHolderA, tokenHolderB } =
-        await deployFixture();
-
-      expect(await greenMintingToken.balanceOf(tokenHolderA.account)).equal(
-        tokenHolderA.balance
-      );
-      expect(await greenMintingToken.balanceOf(tokenHolderB.account)).equal(
-        tokenHolderB.balance
-      );
-    });
-
-    it("Mint vested amount of tokens to VestedLock", async () => {
-      const { greenMintingToken, vestedAmount, vestedLock } =
-        await deployFixture();
-
-      expect(await greenMintingToken.balanceOf(vestedLock)).equal(vestedAmount);
-    });
-  });
-
-  describe("Vesting", function () {
-    it("Unvest will start after defined timestamp", async () => {
-      const timeTillUnlockInSec = 10;
-      const currentBlock = await ethers.provider.getBlock("latest");
-      const unvestStartTimestamp =
-        currentBlock!.timestamp + timeTillUnlockInSec;
-      const { vestingAccount, vestedLock } = await deployFixture(
-        unvestStartTimestamp
-      );
-
-      const availableVestedTokens = await vestedLock.availableVestedTokens();
-
-      expect(availableVestedTokens).equal(0);
-
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .reverted;
-
-      await mineBlocks(unvestStartTimestamp);
-
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .not.reverted;
-    });
-    it("Unvest tokens in schedule", async () => {
-      const {
-        vestingAccount,
-        vestedAmount,
-        claimingPercentsSchedule,
-        secPerStage,
-        vestedLock,
-        unvestStartTimestamp,
-      } = await deployFixture();
-
-      let currentStage = 0;
-
-      let expectedAvailableVestedTokens =
-        (vestedAmount * BigInt(claimingPercentsSchedule[currentStage])) /
-        BigInt(10000);
-
-      let availableVestedTokens = await vestedLock.availableVestedTokens();
-
-      expect(expectedAvailableVestedTokens).equal(availableVestedTokens);
-
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .not.reverted;
-
-      // claiming again will revert as all available were claimed for this stage
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .reverted;
-
-      // move to second claiming stage
-      await mineBlocks(unvestStartTimestamp + secPerStage);
-      currentStage++;
-
-      expectedAvailableVestedTokens =
-        (vestedAmount * BigInt(claimingPercentsSchedule[currentStage])) /
-        BigInt(10000);
-
-      availableVestedTokens = await vestedLock.availableVestedTokens();
-
-      expect(expectedAvailableVestedTokens).equal(availableVestedTokens);
-
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .not.reverted;
-
-      // move to third claiming stage
-      await mineBlocks(unvestStartTimestamp + 2 * secPerStage);
-      currentStage++;
-
-      expectedAvailableVestedTokens =
-        (vestedAmount * BigInt(claimingPercentsSchedule[currentStage])) /
-        BigInt(10000);
-
-      availableVestedTokens = await vestedLock.availableVestedTokens();
-
-      expect(expectedAvailableVestedTokens).equal(availableVestedTokens);
-
-      await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to
-        .not.reverted;
-    });
-
-    it("Only Vesting Account can claim tokens", async () => {
-      const { vestedLock, otherAccounts } = await deployFixture();
-
-      await expect(vestedLock.connect(otherAccounts[0]).claimVestedTokens()).to
-        .reverted;
-    });
-  });
   describe("EIP3009 implementation", () => {
     const transferWithAuthorizationTypes = {
       TransferWithAuthorization: [
@@ -397,13 +221,6 @@ describe("GreenMintingToken", function () {
     });
   });
 });
-
-async function mineBlocks(mineTillTimestamp: number) {
-  // const timestamp = current
-  // for (let i = 0; i < blocksToMine; i++) {
-  // }
-  await hre.ethers.provider.send("evm_mine", [mineTillTimestamp]);
-}
 
 async function getDomain(contractAddress: string): Promise<Domain> {
   return {

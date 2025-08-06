@@ -57,11 +57,17 @@ async function main() {
   const vestedLockAddress = await vestedLock.getAddress();
   console.log(`Vested lock deployed: ${vestedLockAddress}`);
 
-  const transferVestedTokensTx = await greenMintingToken
+  const approveTokensTx = await greenMintingToken
     .connect(deployer)
-    .transfer(vestedLockAddress, VESTED_AMOUNT);
+    .approve(vestedLockAddress, VESTED_AMOUNT);
 
-  await transferVestedTokensTx.wait();
+  await approveTokensTx.wait();
+
+  const lockVestedTokensTx = await vestedLock
+    .connect(deployer)
+    .lockFunds(VESTED_AMOUNT);
+
+  await lockVestedTokensTx.wait();
 
   console.log("Waiting 45 sec for Etherscan to index new contracts...");
   await greenMintingToken.waitForDeployment();
