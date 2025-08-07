@@ -102,9 +102,10 @@ describe.only("VestedLock.sol", function () {
     const vestedLock = await VestedLock.deploy(
       vestingAccount,
       150,
-      [10],
+      [10000],
       latestBlock!.timestamp + 100,
-      greenMintingToken
+      greenMintingToken,
+      vestedAmount
     );
 
     await greenMintingToken.connect(deployer).approve(vestedLock, vestedAmount);
@@ -112,17 +113,14 @@ describe.only("VestedLock.sol", function () {
       .connect(tokenHolder)
       .approve(vestedLock, vestedAmount);
 
-    await expect(vestedLock.connect(tokenHolder).lockFunds(vestedAmount)).to
-      .rejected;
-    await expect(vestedLock.connect(deployer).lockFunds(vestedAmount)).to.not
-      .rejected;
+    await expect(vestedLock.connect(tokenHolder).lockFunds()).to.rejected;
+    await expect(vestedLock.connect(deployer).lockFunds()).to.not.rejected;
 
     await greenMintingToken
       .connect(tokenHolder)
       .transfer(deployer, vestedAmount);
     await greenMintingToken.connect(deployer).approve(vestedLock, vestedAmount);
-    await expect(vestedLock.connect(deployer).lockFunds(vestedAmount)).to
-      .rejected;
+    await expect(vestedLock.connect(deployer).lockFunds()).to.rejected;
   });
 
   it("Token transfers to Lock do not affect calculation", async () => {
@@ -205,8 +203,7 @@ describe.only("VestedLock.sol", function () {
   });
 
   it("After all stages unlock any left amount", async () => {
-    // sum not equal to 100% (10000 == 100%)
-    const claimingPercentsSchedule = [3000];
+    const claimingPercentsSchedule = [10000];
 
     const {
       vestingAccount,
@@ -216,33 +213,21 @@ describe.only("VestedLock.sol", function () {
       vestedLock,
       unvestStartTimestamp,
     } = await deployFixture({ claimingPercentsSchedule });
-    await mineBlocks(unvestStartTimestamp);
-
-    let expectedAvailableVestedTokens =
-      (vestedAmount * BigInt(claimingPercentsSchedule[0])) / BigInt(10000);
-
-    await vestedLock.connect(vestingAccount).claimVestedTokens();
-
-    expect(expectedAvailableVestedTokens).equal(
-      await greenMintingToken.balanceOf(vestingAccount)
-    );
 
     await mineBlocks(unvestStartTimestamp + secPerStage * 5);
 
-    expectedAvailableVestedTokens =
-      vestedAmount - expectedAvailableVestedTokens;
-
-    expect(await vestedLock.availableVestedTokens()).equal(
-      expectedAvailableVestedTokens
-    );
+    expect(await vestedLock.availableVestedTokens()).equal(vestedAmount);
   });
 
   it("Only Vesting Account can claim tokens", async () => {
-    const { vestedLock, otherAccounts, unvestStartTimestamp } =
+    const { vestedLock, vestingAccount, otherAccounts, unvestStartTimestamp } =
       await deployFixture();
     await mineBlocks(unvestStartTimestamp);
 
     await expect(vestedLock.connect(otherAccounts[0]).claimVestedTokens()).to
+      .reverted;
+
+    await expect(vestedLock.connect(vestingAccount).claimVestedTokens()).to.not
       .reverted;
   });
 });

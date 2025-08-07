@@ -13,9 +13,9 @@ contract VestedLock {
     uint256 immutable secPerStage;
     uint256 immutable unvestingStartTimestamp;
     address immutable owner;
+    uint256 immutable fullVestedAmount;
     uint256[] claimingPercentsSchedule;
     uint256 claimedVestedAmount;
-    uint256 leftVestedAmount;
     bool funded;
 
     constructor(
@@ -23,7 +23,8 @@ contract VestedLock {
         uint256 _secPerStage,
         uint256[] memory _claimingPercentsSchedule, // 100% = 10000,
         uint256 _unvestingStartTimestamp,
-        address tokenAddress
+        address tokenAddress,
+        uint256 vestedAmount
     ) {
         require(
             _vestingAccount != address(0),
@@ -39,6 +40,14 @@ contract VestedLock {
             block.timestamp < _unvestingStartTimestamp,
             "Unvesting start timestamp too low"
         );
+        uint256 claimingPercentsSum = 0;
+        for (uint i = 0; i < _claimingPercentsSchedule.length; i++) {
+            claimingPercentsSum += _claimingPercentsSchedule[i];
+        }
+        require(
+            claimingPercentsSum == DENOMINATOR,
+            "Claiming percents schedule must add up to 10000"
+        );
 
         vestingAccount = _vestingAccount;
         secPerStage = _secPerStage;
@@ -47,6 +56,7 @@ contract VestedLock {
         claimedVestedAmount = 0;
         token = IERC20(tokenAddress);
         owner = msg.sender;
+        fullVestedAmount = vestedAmount;
     }
 
     function claimVestedTokens() public {
@@ -59,16 +69,14 @@ contract VestedLock {
         require(availableToClaim > 0, "No available tokens to claim");
 
         claimedVestedAmount += availableToClaim;
-        leftVestedAmount -= availableToClaim;
         token.safeTransfer(msg.sender, availableToClaim);
     }
 
-    function lockFunds(uint256 amount) public {
+    function lockFunds() public {
         require(msg.sender == owner, "Only owner can lock funds");
         require(funded == false, "This Lock has already been funded");
         funded = true;
-        leftVestedAmount = amount;
-        token.safeTransferFrom(msg.sender, address(this), amount);
+        token.safeTransferFrom(msg.sender, address(this), fullVestedAmount);
     }
 
     function availableVestedTokens() public view returns (uint256) {
@@ -78,6 +86,8 @@ contract VestedLock {
         uint256 stage = ((block.timestamp - unvestingStartTimestamp) /
             secPerStage) + 1;
 
+        uint256 leftVestedAmount = fullVestedAmount - claimedVestedAmount;
+
         if (stage > claimingPercentsSchedule.length) {
             return leftVestedAmount;
         }
@@ -86,8 +96,6 @@ contract VestedLock {
         for (uint i = 0; i < stage; i++) {
             availablePercents += claimingPercentsSchedule[i];
         }
-
-        uint256 fullVestedAmount = leftVestedAmount + claimedVestedAmount;
 
         uint256 availableToClaim = ((fullVestedAmount * availablePercents) /
             DENOMINATOR) - claimedVestedAmount;

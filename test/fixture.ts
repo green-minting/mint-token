@@ -59,11 +59,12 @@ export async function deployFixture(input?: DeploymentInput) {
     secPerStage,
     claimingPercentsSchedule,
     unvestStartTimestamp,
-    greenMintingToken
+    greenMintingToken,
+    vestedAmount
   );
 
   await greenMintingToken.approve(vestedLock, vestedAmount);
-  await vestedLock.lockFunds(vestedAmount);
+  await vestedLock.lockFunds();
 
   return {
     greenMintingToken,
