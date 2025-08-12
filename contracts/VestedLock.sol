@@ -84,16 +84,16 @@ contract VestedLock {
             return 0;
         }
         uint256 stage = ((block.timestamp - unvestingStartTimestamp) /
-            secPerStage) + 1;
+            secPerStage);
 
         uint256 leftVestedAmount = fullVestedAmount - claimedVestedAmount;
 
-        if (stage > claimingPercentsSchedule.length) {
+        if (stage >= claimingPercentsSchedule.length) {
             return leftVestedAmount;
         }
         uint256 availablePercents = 0;
 
-        for (uint i = 0; i < stage; i++) {
+        for (uint i = 0; i <= stage; i++) {
             availablePercents += claimingPercentsSchedule[i];
         }
 
