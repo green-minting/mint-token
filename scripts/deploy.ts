@@ -4,7 +4,8 @@ import { PrefundedAccount } from "./types";
 import { saveDeploymentFile } from "./saveDeployment";
 
 const ONE_YEAR_IN_SEC = 31536000;
-const UNVESTING_START_TIMESTAMP = 1756684800; // 01.09.25
+const UNVESTING_START_TIMESTAMP = 1767139200; // 31 Dec 2025
+
 const CLAIMING_PERCENTS_SCHEDULE = [
   3000, 2000, 1000, 500, 500, 500, 500, 500, 500, 500, 250, 250,
 ];
@@ -42,7 +43,7 @@ async function main() {
     PREFUNDED_ACCOUNTS.map((prefunded) => prefunded.amount),
     VESTED_AMOUNT
   );
-
+  await greenMintingToken.waitForDeployment();
   const greenMintingTokenAddress = await greenMintingToken.getAddress();
   console.log(`Token deployed: ${greenMintingTokenAddress}`);
 
@@ -52,26 +53,22 @@ async function main() {
     ONE_YEAR_IN_SEC,
     CLAIMING_PERCENTS_SCHEDULE,
     UNVESTING_START_TIMESTAMP,
-    greenMintingToken
+    greenMintingToken,
+    VESTED_AMOUNT
   );
+  await vestedLock.waitForDeployment();
   const vestedLockAddress = await vestedLock.getAddress();
   console.log(`Vested lock deployed: ${vestedLockAddress}`);
 
   const approveTokensTx = await greenMintingToken
     .connect(deployer)
     .approve(vestedLockAddress, VESTED_AMOUNT);
-
   await approveTokensTx.wait();
 
-  const lockVestedTokensTx = await vestedLock
-    .connect(deployer)
-    .lockFunds(VESTED_AMOUNT);
-
+  const lockVestedTokensTx = await vestedLock.connect(deployer).lockFunds();
   await lockVestedTokensTx.wait();
 
   console.log("Waiting 45 sec for Etherscan to index new contracts...");
-  await greenMintingToken.waitForDeployment();
-  await vestedLock.waitForDeployment();
   await sleepFor(45000);
 
   await verifyContract(await greenMintingToken.getAddress(), hre, [
@@ -85,7 +82,8 @@ async function main() {
     ONE_YEAR_IN_SEC,
     CLAIMING_PERCENTS_SCHEDULE,
     UNVESTING_START_TIMESTAMP,
-    greenMintingToken,
+    greenMintingTokenAddress,
+    VESTED_AMOUNT,
   ]);
 
   saveDeploymentFile({
